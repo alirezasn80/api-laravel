@@ -8,14 +8,18 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-Route::get('/test', action: [ApiController::class, 'test'])->name('test');
 
-Route::post('/register', action: [ApiController::class, 'register'])->name('register');
+Route::group(['prefix' => 'v1', 'as' => 'api.'], function () {
 
-Route::post('/login', action: [ApiController::class, 'login'])->name('login');
+    Route::get('/test', action: [ApiController::class, 'test'])->name('test');
 
-Route::get('/get-users', [ApiController::class, 'getAllUsers'])->name('getAllUsers');
+    Route::post('/register', action: [ApiController::class, 'register'])->name('register');
 
-Route::put('/user/{userId}', [ApiController::class, 'editUser'])->name('editUser');
+    Route::post('/login', action: [ApiController::class, 'login'])->name('login');
 
-Route::delete('/user/{userId}', [ApiController::class, 'deleteUser'])->name('deleteUser');
+    Route::get('/get-users', [ApiController::class, 'getAllUsers'])->name('getAllUsers');
+
+    Route::put('/user/{userId}', [ApiController::class, 'editUser'])->name('editUser');
+
+    Route::delete('/user/{userId}', [ApiController::class, 'deleteUser'])->name('deleteUser');
+});
