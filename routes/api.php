@@ -22,4 +22,13 @@ Route::group(['prefix' => 'v1', 'as' => 'api.'], function () {
     Route::put('/user/{userId}', [ApiController::class, 'editUser'])->name('editUser');
 
     Route::delete('/user/{userId}', [ApiController::class, 'deleteUser'])->name('deleteUser');
+
+    Route::post('/create-category', [ApiController::class, 'createCategory'])->name('createCategory');
+
+    Route::get('/categories', [ApiController::class, 'getCategories'])->name('getCategories');
+
+    Route::post('/edit-category/{categoryId}', [ApiController::class, 'editCategory'])->name('editCategory');
+
+    Route::delete('delete-category/{categoryId}', [ApiController::class, 'deleteCategory'])->name('deleteCategory');
+
 });

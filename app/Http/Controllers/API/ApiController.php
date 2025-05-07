@@ -3,15 +3,20 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\ProductCategory;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use App\Traits\FileUploadTrait;
 
 class ApiController extends Controller
 
 {
+    use FileUploadTrait;
+
     public function test()
     {
         return response()->json([
@@ -157,4 +162,127 @@ class ApiController extends Controller
             'message' => 'User Successfully deleted',
         ]);
     }
+
+
+    // Create product category
+    public function createCategory(Request $request)
+    {
+        $validator = Validator::make(
+            data: $request->all(),
+            rules: [
+                'name' => 'required|unique:product_categories,name'
+            ]
+        );
+
+
+        if ($validator->fails()) {
+            return response()->json(
+                data: [
+                    'status' => 'fail',
+                    'message' => $validator->errors()
+                ], status: 400
+            );
+        }
+
+        $data['name'] = $request->name;
+        $data['slug'] = Str::slug($request->name);
+
+        $imagePath = $this->uploadImage($request, 'image');
+        $data['image'] = $imagePath ?? '';
+
+
+        ProductCategory::create($data);
+
+
+        return response()->json(
+            [
+                'status' => 'success',
+                'message' => 'product category successfully created',
+                'data' => $data
+            ],
+            200
+        );
+    }
+
+    public function getCategories()
+    {
+        $categories = ProductCategory::get();
+
+        if (!$categories) {
+            return response()->json([
+                'status' => 'fail',
+                'message' => 'Data Not Found!'
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'count' => count($categories),
+            'data' => $categories
+        ]);
+    }
+
+    public function editCategory($categoryId, Request $request)
+    {
+        $category = ProductCategory::find($categoryId);
+
+        if (!$category) {
+            return response()->json(
+                [
+                    'status' => 'fail',
+                    'message' => 'Data not found!'
+                ]
+            );
+        }
+
+        $validator = Validator::make(
+            data: $request->all(),
+            rules: ['name' => 'required']
+        );
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'fail',
+                'message' => $validator->errors()
+            ]);
+        }
+
+        $category->name = $request->name;
+        $category->slug = Str::slug($request->name);
+        $imagePath = $this->uploadImage($request, 'image');
+        $category->image = $imagePath ?? null;
+        $category->save();
+
+        return response()->json(
+            [
+                'status' => 'success',
+                'message' => 'Category Successfully Updated'
+            ]
+        );
+
+    }
+
+    public function deleteCategory(int $categoryId)
+    {
+
+        $category = ProductCategory::find($categoryId);
+        if (!$category) {
+            return response()->json([
+                'status' => 'fail',
+                'message' => 'Category Not Found!'
+            ], 404);
+        }
+
+        $category->delete();
+
+        return response()->json(
+            [
+                'status' => 'success',
+                'message' => 'category ' . $category->name . ' deleted'
+            ], 200
+        );
+
+    }
+
+
 }
