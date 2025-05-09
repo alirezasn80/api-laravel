@@ -9,26 +9,53 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 
-Route::group(['prefix' => 'v1', 'as' => 'api.'], function () {
+Route::prefix('v1')->as('api.')->group(function () {
 
-    Route::get('/test', action: [ApiController::class, 'test'])->name('test');
+    // Test
+    Route::get('/test', [ApiController::class, 'test'])->name('test');
 
-    Route::post('/register', action: [ApiController::class, 'register'])->name('register');
+    // Login & Register
+    Route::post('/register', [ApiController::class, 'register'])->name('register');
+    Route::post('/login', [ApiController::class, 'login'])->name('login');
 
-    Route::post('/login', action: [ApiController::class, 'login'])->name('login');
-
-    Route::get('/get-users', [ApiController::class, 'getAllUsers'])->name('getAllUsers');
-
-    Route::put('/user/{userId}', [ApiController::class, 'editUser'])->name('editUser');
-
-    Route::delete('/user/{userId}', [ApiController::class, 'deleteUser'])->name('deleteUser');
-
-    Route::post('/create-category', [ApiController::class, 'createCategory'])->name('createCategory');
-
+    // Public Data
     Route::get('/categories', [ApiController::class, 'getCategories'])->name('getCategories');
+    Route::get('/products', [ApiController::class, 'getProducts'])->name('getProducts');
+    Route::get('/shipping-methods', [ApiController::class, 'getAllShippingMethods'])->name('getAllShippingMethods');
 
-    Route::post('/edit-category/{categoryId}', [ApiController::class, 'editCategory'])->name('editCategory');
 
-    Route::delete('delete-category/{categoryId}', [ApiController::class, 'deleteCategory'])->name('deleteCategory');
+    // Protected Routes (auth:sanctum)
+    Route::middleware('auth:sanctum')->group(function () {
+
+        // User
+        Route::prefix('user')->group(function () {
+            Route::get('/get-users', [ApiController::class, 'getAllUsers'])->name('getAllUsers')->middleware('admin');
+            Route::put('/edit/{userId}', [ApiController::class, 'editUser'])->name('editUser');
+            Route::delete('/delete/{userId}', [ApiController::class, 'deleteUser'])->name('deleteUser');
+        });
+
+        // Category
+        Route::prefix('category')->group(function () {
+            Route::post('/create', [ApiController::class, 'createCategory'])->name('createCategory');
+            Route::post('/edit/{categoryId}', [ApiController::class, 'editCategory'])->name('editCategory');
+            Route::delete('/delete/{categoryId}', [ApiController::class, 'deleteCategory'])->name('deleteCategory');
+        });
+
+        // Product
+        Route::prefix('product')->group(function () {
+            Route::post('/create', [ApiController::class, 'createProduct'])->name('createProduct');
+            Route::post('/edit/{id}', [ApiController::class, 'editProduct'])->name('editProduct');
+            Route::delete('/delete/{id}', [ApiController::class, 'deleteProduct'])->name('deleteProduct');
+        });
+
+        // Shipping Methods
+        Route::prefix('shipping-method')->group(function () {
+            Route::post('/create', [ApiController::class, 'createShippingMethod'])->name('createShippingMethod');
+            Route::post('/edit/{shippingId}', [ApiController::class, 'editShippingMethods'])->name('editShippingMethods');
+            Route::delete('/delete/{shippingId}', [ApiController::class, 'deleteShippingMethod'])->name('deleteShippingMethod');
+        });
+
+    });
 
 });
+

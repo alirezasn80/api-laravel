@@ -3,19 +3,23 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ProductCategoryResource;
+use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Models\ShippingMethod;
 use App\Models\User;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use App\Traits\FileUploadTrait;
+use App\Traits\FileUploadAndDeleteTrait;
 
 class ApiController extends Controller
 
 {
-    use FileUploadTrait;
+    use FileUploadAndDeleteTrait, ApiResponse;
 
     public function test()
     {
@@ -92,7 +96,7 @@ class ApiController extends Controller
     //get All Users
     public function getAllUsers()
     {
-        $users = User::get();
+        $users = User::all();
 
         if (!$users) {
             return response()->json([
@@ -146,6 +150,7 @@ class ApiController extends Controller
 
     public function deleteUser($userId)
     {
+
         $user = User::find($userId);
 
         if (!$user) {
@@ -187,8 +192,9 @@ class ApiController extends Controller
         $data['name'] = $request->name;
         $data['slug'] = Str::slug($request->name);
 
+
         $imagePath = $this->uploadImage($request, 'image');
-        $data['image'] = $imagePath ?? '';
+        $data['image'] = $imagePath ?? null;
 
 
         ProductCategory::create($data);
@@ -282,6 +288,202 @@ class ApiController extends Controller
             ], 200
         );
 
+    }
+
+    public function createProduct(Request $request)
+    {
+
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'name' => 'required|string|max:255',
+                'category_id' => 'required|integer|exists:product_categories,id',
+                'price' => 'required|numeric|min:0',
+                'image' => 'nullable|image|max:2048',
+                'description' => 'nullable|string',
+                'status' => 'nullable|boolean',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return $this->errorResponse(
+                message: $validator->errors(),
+                statusCode: 422
+            );
+        }
+
+        $validated = $validator->validated();
+
+        $productData = [
+            'name' => $validated['name'],
+            'category_id' => $validated['category_id'],
+            'price' => $validated['price'],
+            'description' => $validated['description'] ?? null,
+            'status' => $validated['status'] ?? true,
+            'image' => null
+        ];
+
+        if ($request->hasFile('image')) {
+            $productData['image'] = $this->uploadImage($request, 'image');
+        }
+
+        $product = Product::create($productData);
+
+        return $this->successResponse(
+            data: $product,
+            message: 'success product created'
+        );
+    }
+
+    public function getProducts()
+    {
+        $categories = ProductCategory::with('products')->get();
+
+        if ($categories->isEmpty()) {
+            return $this->errorResponse();
+        }
+
+        return $this->successResponse(data: ProductCategoryResource::collection($categories));
+
+    }
+
+
+    public function editProduct($productId, Request $request)
+    {
+        $product = Product::find($productId);
+
+        if (!$product) {
+            return $this->errorResponse();
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'category_id' => 'required|exists:product_categories,id',
+            'price' => 'required|numeric',
+            'description' => 'nullable|string',
+            'status' => 'nullable|boolean',
+            'image' => 'nullable|image|max:2048',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse(
+                message: $validator->errors(),
+                statusCode: 422
+            );
+        }
+
+        $validated = $validator->validated();
+
+
+        $product->fill([
+            'name' => $validated['name'],
+            'price' => $validated['price'],
+            'category_id' => $validated['category_id'],
+            'description' => $validated['description'] ?? $product->description,
+            'status' => $validated['status'] ?? true,
+        ]);
+
+
+        if ($request->hasFile('image')) {
+            $product->image = $this->uploadImage($request, 'image');
+        }
+
+        $product->save();
+
+        return $this->successResponse(
+            data: $product, message: 'successfully product edited'
+        );
+    }
+
+    public function deleteProduct(int $productId)
+    {
+
+        $product = Product::find($productId);
+
+        if (!$product) {
+            return $this->errorResponse();
+        }
+
+
+        $this->removeImage($product->image);
+        $product->delete();
+
+        return $this->successResponse(message: 'Product Successfully Deleted');
+    }
+
+    public function createShippingMethod(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'shipping_price' => 'required|numeric|min:0',
+            'method_code' => 'required|string|max:100',
+        ]);
+
+        if ($validator->fails()) return $this->errorResponse(message: $validator->errors());
+
+        $validated = $validator->validated();
+
+        $data = [
+            'name' => $validated['name'],
+            'status' => $validated['status'] ?? true,
+            'shipping_price' => $validated['shipping_price'],
+            'method_code' => $validated['method_code']
+        ];
+
+        ShippingMethod::create($data);
+
+        return $this->successResponse(message: "Shipping method is successfully created :)");
+
+
+    }
+
+    public function getAllShippingMethods()
+    {
+        $items = ShippingMethod::all();
+
+        if ($items->isEmpty()) return $this->errorResponse();
+
+        return $this->successResponse(data: $items);
+
+    }
+
+    public function editShippingMethods(int $shippingId, Request $request)
+    {
+        $shippingMethod = ShippingMethod::find($shippingId);
+
+        if (!$shippingMethod) return $this->errorResponse();
+
+        $validator = Validator::make(
+            data: $request->all(), rules: [
+            'name' => 'required',
+            'shipping_price' => 'required',
+            'method_code' => 'required'
+        ]);
+
+        if ($validator->fails()) return $this->errorResponse(message: $validator->errors());
+
+        $validated = $validator->validated();
+
+        $shippingMethod->fill([
+            'name' => $validated['name'],
+            'shipping_price' => $validated['shipping_price'],
+            'method_code' => $validated['method_code'],
+            'status' => $validated['status'] ?? true
+        ]);
+
+        $shippingMethod->save();
+
+        return $this->successResponse(message: 'shipping method successfully updated');
+    }
+
+    public function deleteShippingMethod(int $shippingId)
+    {
+        $result = ShippingMethod::find($shippingId);
+
+        if (!$result) return $this->errorResponse();
+
+        $result->delete();
+        return $this->successResponse(message: 'shipping method successfully deleted');
     }
 
 
